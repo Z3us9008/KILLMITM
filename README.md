@@ -14,9 +14,25 @@ Para instalar OpenSSL en sistemas basados en Debian/Ubuntu, usa el siguiente com
 ```bash
 sudo apt-get install libssl-dev
 
-### CLONACIÓN COMPILACIÓN Y EJECUCIÓN DEL PROGRAMA
+Clonación, Compilación y Ejecución del Programa
+Clona este repositorio:
+
+bash
+Copiar código
 git clone https://github.com/Z3us9008/KMITM.git
 cd KMITM
+Instala las dependencias:
+
+bash
+Copiar código
 sudo apt-get install libssl-dev
+Compila el programa:
+
+bash
+Copiar código
 gcc -o KMITM check_cert.c -lssl -lcrypto
+Ejecuta el programa:
+
+bash
+Copiar código
 ./KMITM www.ejemplo.com
