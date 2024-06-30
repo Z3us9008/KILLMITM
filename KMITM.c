@@ -5,17 +5,20 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/x509.h>
+#include <openssl/crypto.h>
 
 void imprimir_huella_digital(X509 *cert) {
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int n;
-    if (X509_digest(cert, EVP_sha256(), md, &n)) {
-        printf("Huella digital: ");
+    const EVP_MD *digest = EVP_sha256(); // Se debe definir el tipo de digest
+
+    if (X509_digest(cert, digest, md, &n)) {
+        printf("Huella digital SHA256 del certificado del servidor: ");
         for (unsigned int i = 0; i < n; i++) {
             printf("%02X%c", md[i], (i + 1 == n) ? '\n' : ':');
         }
     } else {
-        fprintf(stderr, "Error al calcular la huella digital\n");
+        fprintf(stderr, "Error al calcular la huella digital del certificado\n");
     }
 }
 
@@ -50,23 +53,64 @@ int main(int argc, char **argv) {
     if (BIO_do_connect(bio) <= 0) {
         fprintf(stderr, "Error al conectar con el servidor\n");
         ERR_print_errors_fp(stderr);
+        SSL_CTX_free(ctx);
         return 1;
     }
 
     if (BIO_do_handshake(bio) <= 0) {
         fprintf(stderr, "Error al establecer la conexión SSL\n");
         ERR_print_errors_fp(stderr);
+        BIO_free_all(bio);
+        SSL_CTX_free(ctx);
         return 1;
     }
 
     X509 *cert = SSL_get_peer_certificate(ssl);
-    if (cert) {
-        imprimir_huella_digital(cert);
-        X509_free(cert);
-    } else {
-        fprintf(stderr, "No se encontró el certificado\n");
+    if (!cert) {
+        fprintf(stderr, "No se encontró el certificado del servidor\n");
+        BIO_free_all(bio);
+        SSL_CTX_free(ctx);
+        return 1;
     }
 
+    imprimir_huella_digital(cert);
+
+    // Verificar el resultado de la verificación del certificado
+    long verif = SSL_get_verify_result(ssl);
+    if (verif != X509_V_OK) {
+        fprintf(stderr, "Fallo en la verificación del certificado: %s\n", X509_verify_cert_error_string(verif));
+        X509_free(cert);
+        BIO_free_all(bio);
+        SSL_CTX_free(ctx);
+        return 1;
+    }
+
+    // Comparar la huella digital del certificado con la esperada (pines de certificado)
+    unsigned char huella_digital_esperada[] = {
+        /* Huella digital SHA256 esperada en formato hexadecimal */
+    };
+
+    unsigned char md[EVP_MAX_MD_SIZE];
+    unsigned int n;
+    const EVP_MD *digest = EVP_sha256(); // Se debe definir el tipo de digest
+
+    if (!X509_digest(cert, digest, md, &n)) {
+        fprintf(stderr, "Error al calcular la huella digital del certificado\n");
+        X509_free(cert);
+        BIO_free_all(bio);
+        SSL_CTX_free(ctx);
+        return 1;
+    }
+
+    if (n != sizeof(huella_digital_esperada) || memcmp(md, huella_digitalesperada, n) != 0) {
+        fprintf(stderr, "La huella digital del certificado no coincide con la esperada. Posible ataque MITM.\n");
+        X509_free(cert);
+        BIO_free_all(bio);
+        SSL_CTX_free(ctx);
+        return 1;
+    }
+
+    X509_free(cert);
     BIO_free_all(bio);
     SSL_CTX_free(ctx);
     EVP_cleanup();
