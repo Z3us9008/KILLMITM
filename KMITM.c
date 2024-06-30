@@ -10,7 +10,7 @@
 void imprimir_huella_digital(X509 *cert) {
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned int n;
-    const EVP_MD *digest = EVP_sha256(); // Se define el tipo de digest como SHA-256
+    const EVP_MD *digest = EVP_sha256(); 
 
     if (X509_digest(cert, digest, md, &n)) {
         printf("Huella digital SHA256 del certificado del servidor: ");
@@ -20,6 +20,57 @@ void imprimir_huella_digital(X509 *cert) {
     } else {
         fprintf(stderr, "Error al calcular la huella digital del certificado\n");
     }
+}
+
+int verificar_certificado(X509 *cert, const char *nombre_del_servidor) {
+    // Verificar la cadena de certificados
+    X509_STORE *store = X509_STORE_new();
+    if (!store) {
+        fprintf(stderr, "Error al crear el objeto X509_STORE\n");
+        return 0;
+    }
+
+    if (X509_STORE_add_cert(store, cert) != 1) {
+        fprintf(stderr, "Error al agregar el certificado a la tienda X509_STORE\n");
+        X509_STORE_free(store);
+        return 0;
+    }
+
+    // Verifica la validez del certificado
+    X509_STORE_CTX *ctx = X509_STORE_CTX_new();
+    if (!ctx) {
+        fprintf(stderr, "Error al crear el contexto X509_STORE_CTX\n");
+        X509_STORE_free(store);
+        return 0;
+    }
+
+    if (X509_STORE_CTX_init(ctx, store, cert, NULL) != 1) {
+        fprintf(stderr, "Error al inicializar el contexto X509_STORE_CTX\n");
+        X509_STORE_CTX_free(ctx);
+        X509_STORE_free(store);
+        return 0;
+    }
+
+    if (X509_verify_cert(ctx) != 1) {
+        fprintf(stderr, "Fallo en la verificación del certificado: %s\n", X509_verify_cert_error_string(X509_STORE_CTX_get_error(ctx)));
+        X509_STORE_CTX_free(ctx);
+        X509_STORE_free(store);
+        return 0;
+    }
+
+    // Verifica que el certificado sea válido para el nombre del servidor
+    if (nombre_del_servidor) {
+        if (X509_check_host(cert, nombre_del_servidor, strlen(nombre_del_servidor), 0, NULL) != 1) {
+            fprintf(stderr, "El certificado no es válido para el servidor: %s\n", nombre_del_servidor);
+            X509_STORE_CTX_free(ctx);
+            X509_STORE_free(store);
+            return 0;
+        }
+    }
+
+    X509_STORE_CTX_free(ctx);
+    X509_STORE_free(store);
+    return 1;
 }
 
 int main(int argc, char **argv) {
@@ -75,10 +126,9 @@ int main(int argc, char **argv) {
 
     imprimir_huella_digital(cert);
 
-    // Verificar el resultado de la verificación del certificado
-    long verif = SSL_get_verify_result(ssl);
-    if (verif != X509_V_OK) {
-        fprintf(stderr, "Fallo en la verificación del certificado: %s\n", X509_verify_cert_error_string(verif));
+    // Verificar el certificado y la conexión
+    if (!verificar_certificado(cert, nombre_del_servidor)) {
+        fprintf(stderr, "No se pudo verificar el certificado del servidor o la conexión no es segura\n");
         X509_free(cert);
         BIO_free_all(bio);
         SSL_CTX_free(ctx);
