@@ -24,7 +24,7 @@ cd KMITM
 sudo apt-get install libssl-dev
 
 # Compilar el programa
-gcc -o KMITM kmitm.c -lssl -lcrypto
+gcc KMITM.c -o KMITM
 
 # Ejecutar el programa
 ./KMITM www.ejemplo.com
