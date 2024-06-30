@@ -18,7 +18,7 @@ sudo apt-get install libssl-dev
 # Clonar el repositorio
 git clone https://github.com/Z3us9008/KLLMITM.git
 
-cd KMITM
+cd KLLMITM
 
 # Instalar dependencias
 sudo apt-get install libssl-dev
