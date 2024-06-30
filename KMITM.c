@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (n != sizeof(huella_digital_esperada) || memcmp(md, huella_digitalesperada, n) != 0) {
+    if (n != sizeof(huella_digital_esperada) || memcmp(md, huella_digital_esperada, n) != 0) {
         fprintf(stderr, "La huella digital del certificado no coincide con la esperada. Posible ataque MITM.\n");
         X509_free(cert);
         BIO_free_all(bio);
